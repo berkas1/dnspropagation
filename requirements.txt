@@ -1,0 +1,4 @@
+PyYAML>=6.0
+argcomplete>=2.0.0
+dnspython>=2.3.0
+prettytable>=3.6.0

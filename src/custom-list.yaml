@@ -1,0 +1,17 @@
+---
+
+- ipv4: 8.8.8.8
+  owner: google
+  country: global
+- ipv4: 1.1.1.1
+  owner: cloudflare
+  country: global
+- ipv4: 193.17.47.1
+  owner: nic.cz
+  country: Czechia
+- ipv4: 9.9.9.9
+  owner: quad9
+  country: Switzerland
+- ipv4: 195.243.214.4
+  owner: Deutsche Telekom
+  country: Germany

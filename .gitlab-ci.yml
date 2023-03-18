@@ -1,0 +1,27 @@
+image: python:3.10-alpine
+
+stages:
+  - test
+
+before_script:
+   - pip install twine pytest
+   - pip install --upgrade build
+   - pip install -r requirements.txt
+
+
+pytest:
+  stage: test
+  script:
+    - pytest tests/functional.py
+
+testing:
+  stage: test
+  script:
+    - python -m build
+    - pip install dist/dnspropagation_berkas1-0.1.3-py3-none-any.whl
+    - dnspropagation --help
+    - dnspropagation a || true
+    - dnspropagation a adsfdsfdsafsadg.adfdsaf || true
+    - dnspropagation a lvb.cz
+    - dnspropagation --owner google txt berka.dev
+

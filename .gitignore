@@ -1,0 +1,11 @@
+dist/
+.idea/
+.pytest_cache/
+tests/
+venv/
+src/__pycache__/
+src/dnspropagation_berkas1.egg-info/
+src/dnspropagation_berkas1/
+src/dnspropagation.egg-info/
+src/dnspropagation/
+test.py

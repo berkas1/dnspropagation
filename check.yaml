@@ -1,0 +1,6 @@
+- type: a
+  domain: ostack.cz
+  expected: [37.157.196.96]
+- type: a
+  domain: blog.berkasimon.com
+  expected: [37.157.196.96]
