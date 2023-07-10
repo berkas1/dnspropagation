@@ -11,6 +11,9 @@ pip install dnspropagation
 In the most simple form you can just specify type of record and domain name:
 ```
 dnspropagation a google.com
+
+# or you can use docker version
+docker run berkas1/dnspropagation a google.com
 ```
 
 It will check entries for a given type and domain name using five default public nameservers. It returns a human-readable colorful table. You can use `--json` or `--yaml` parameters to make it machine-readable.
@@ -21,6 +24,8 @@ It will check entries for a given type and domain name using five default public
 You can either supply custom DNS server to query using the `--server` parameter, which can be used multiple times:
 ```shell
 dnspropagation --server 1.1.1.1 --server 8.8.8.8 a google.com
+# or
+docker run berkas1/dnspropagation --server 1.1.1.1 --server 8.8.8.8 a google.com
 ```
 
 OR you can add a yaml-formatted list of servers. This has to follow given format (as can be seen in [this](custom-list.yaml) file) and be supplied to the utility using the `--custom_list` parameter.
