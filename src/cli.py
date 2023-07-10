@@ -88,7 +88,10 @@ def main():
     if args_dict["custom_list"] is None and args_dict["server"] is None:
         dns_servers = checker.default_dns
         if args_dict["show_default"]:
-            print(checker.default_dns)
+            if args_dict["yaml"]:
+                print(yaml.dump(checker.default_dns))
+            else:
+                print(checker.default_dns)
             exit(0)
 
     if args_dict["file"] is None and (args_dict["record_type"] is None or args_dict["domain"] is None):
