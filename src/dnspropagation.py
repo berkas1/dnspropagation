@@ -33,10 +33,12 @@ class DNSpropagation:
             sys.exit(10)
 
 
-    def dns_answer_to_strings(self, answer: []) -> []:
+    def dns_answer_to_strings(self, answer: [], show_ttl=False) -> []:
         output = []
         for a in answer:
             tmp = {'server': a["server"], 'answer': []}
+            if show_ttl:
+                tmp['ttl'] = a.get('ttl')
             for r in a["answer"]:
                 if not isinstance(r, str):
                     tmp["answer"].append(r.to_text().strip('"'))
@@ -66,6 +68,16 @@ class DNSpropagation:
 
         print(json.dumps(res[0]))
 
+    def sanitize_domain(self, domain: str) -> str:
+        # Remove protocol (e.g. https://)
+        if "://" in domain:
+            domain = domain.split("://", 1)[1]
+        # Remove port number (e.g. :8080)
+        domain = domain.split(":")[0]
+        # Remove path / trailing slash
+        domain = domain.split("/")[0]
+        return domain
+
     def check_entries(self, servers: [], record_type, domain):
         results = []
         for server in servers:
@@ -74,9 +86,9 @@ class DNSpropagation:
                 resolver.nameservers = [server["ipv4"]]
                 answer = resolver.resolve(domain, record_type)
             except dns.resolver.NoAnswer:
-                results.append({"server": server, "answer": []})
+                results.append({"server": server, "answer": [], "ttl": None})
             except dns.resolver.LifetimeTimeout:
-                results.append({"server": server, "answer": ["timed out"]})
+                results.append({"server": server, "answer": ["timed out"], "ttl": None})
             except dns.resolver.NXDOMAIN:
                 print("Domain not found.")
                 exit(2)
@@ -84,7 +96,7 @@ class DNSpropagation:
                 output = []
                 for rdata in answer:
                     output.append(rdata)
-                results.append({"server": server, "answer": output})
+                results.append({"server": server, "answer": output, "ttl": answer.rrset.ttl})
 
         return results
 
@@ -95,9 +107,9 @@ class DNSpropagation:
         return set(l1) == set(l2)
 
 
-    def print_pretty_table(self, results: [], expected):
+    def print_pretty_table(self, results: [], expected, show_ttl=False):
         x = PrettyTable()
-        x.field_names = ["Server", "Location", "Answer"]
+        x.field_names = ["Server", "Location", "TTL", "Answer"] if show_ttl else ["Server", "Location", "Answer"]
 
         for result in results:
             tmp_answer = ""
@@ -120,7 +132,10 @@ class DNSpropagation:
                     tmp_string = '\033[92m' + tmp_string + '\033[0m'
                 answers.append(tmp_string)
             result_string = "\n".join(answers)
-            x.add_row([result["server"]["ipv4"], result["server"]["country"], result_string])
+            if show_ttl:
+                x.add_row([result["server"]["ipv4"], result["server"]["country"], result.get("ttl"), result_string])
+            else:
+                x.add_row([result["server"]["ipv4"], result["server"]["country"], result_string])
 
 
         x._max_width = {"Answer": 70}
