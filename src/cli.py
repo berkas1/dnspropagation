@@ -3,7 +3,7 @@ import json
 import sys
 
 import yaml
-import pkg_resources
+#import pkg_resources
 
 import dnspropagation
 
@@ -120,6 +120,8 @@ def main():
         to_check = checker.parse_yaml(args_dict["file"])
         checker.multicheck(to_check, args_dict["country"], args_dict["owner"])
         exit(0)
+
+    args_dict["domain"] = checker.sanitize_domain(args_dict["domain"])
 
     results = checker.check_entries(dns_servers, args_dict["record_type"], args_dict["domain"])
 

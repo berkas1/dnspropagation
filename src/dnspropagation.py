@@ -66,6 +66,16 @@ class DNSpropagation:
 
         print(json.dumps(res[0]))
 
+    def sanitize_domain(self, domain: str) -> str:
+        # Remove protocol (e.g. https://)
+        if "://" in domain:
+            domain = domain.split("://", 1)[1]
+        # Remove port number (e.g. :8080)
+        domain = domain.split(":")[0]
+        # Remove path / trailing slash
+        domain = domain.split("/")[0]
+        return domain
+
     def check_entries(self, servers: [], record_type, domain):
         results = []
         for server in servers:
