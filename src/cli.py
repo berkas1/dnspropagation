@@ -7,7 +7,7 @@ import yaml
 
 import dnspropagation
 
-version = "0.0.4"
+version = "0.0.5"
 
 def main():
     dns_servers = []
