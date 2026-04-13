@@ -28,6 +28,9 @@ def main():
                         help="Show YAML-formattes list of default DNS servers.")
     parser.add_argument("--version",
                         action="store_true")
+    parser.add_argument("--ttl",
+                        action="store_true",
+                        help="Show TTL value in the output.")
 
 
     parser.add_argument("--random",
@@ -126,14 +129,14 @@ def main():
     results = checker.check_entries(dns_servers, args_dict["record_type"], args_dict["domain"])
 
     if args_dict["json"]:
-        print(json.dumps(checker.dns_answer_to_strings(results)))
+        print(json.dumps(checker.dns_answer_to_strings(results, show_ttl=args_dict["ttl"])))
         exit(0)
     elif args_dict["yaml"]:
-        print(yaml.dump(checker.dns_answer_to_strings(results)))
+        print(yaml.dump(checker.dns_answer_to_strings(results, show_ttl=args_dict["ttl"])))
         exit(0)
 
 
-    checker.print_pretty_table(results, args_dict["expected"])
+    checker.print_pretty_table(results, args_dict["expected"], show_ttl=args_dict["ttl"])
 
 
 
