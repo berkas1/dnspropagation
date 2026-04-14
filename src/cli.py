@@ -31,6 +31,13 @@ def main():
     parser.add_argument("--ttl",
                         action="store_true",
                         help="Show TTL value in the output.")
+    parser.add_argument("--no-color",
+                        action="store_true",
+                        help="Disable colored output.")
+    parser.add_argument("--timeout",
+                        type=float,
+                        default=None,
+                        help="Timeout in seconds for each DNS query (e.g. 2.5). Defaults to dnspython's built-in timeout.")
 
 
     parser.add_argument("--random",
@@ -117,6 +124,9 @@ def main():
     # filter DNS servers
     dns_servers = checker.filter_servers(dns_servers, args_dict["country"], args_dict["owner"])
 
+    if args_dict["random"] is not None:
+        dns_servers = checker.random_servers(dns_servers, args_dict["random"])
+
 
     # run multiple checks at once
     if args_dict["file"] is not None:
@@ -126,7 +136,7 @@ def main():
 
     args_dict["domain"] = checker.sanitize_domain(args_dict["domain"])
 
-    results = checker.check_entries(dns_servers, args_dict["record_type"], args_dict["domain"])
+    results = checker.check_entries(dns_servers, args_dict["record_type"], args_dict["domain"], timeout=args_dict["timeout"])
 
     if args_dict["json"]:
         print(json.dumps(checker.dns_answer_to_strings(results, show_ttl=args_dict["ttl"])))
@@ -136,7 +146,7 @@ def main():
         exit(0)
 
 
-    checker.print_pretty_table(results, args_dict["expected"], show_ttl=args_dict["ttl"])
+    checker.print_pretty_table(results, args_dict["expected"], show_ttl=args_dict["ttl"], no_color=args_dict["no_color"])
 
 
 
