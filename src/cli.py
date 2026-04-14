@@ -31,6 +31,9 @@ def main():
     parser.add_argument("--ttl",
                         action="store_true",
                         help="Show TTL value in the output.")
+    parser.add_argument("--no-color",
+                        action="store_true",
+                        help="Disable colored output.")
     parser.add_argument("--timeout",
                         type=float,
                         default=None,
@@ -140,7 +143,7 @@ def main():
         exit(0)
 
 
-    checker.print_pretty_table(results, args_dict["expected"], show_ttl=args_dict["ttl"])
+    checker.print_pretty_table(results, args_dict["expected"], show_ttl=args_dict["ttl"], no_color=args_dict["no_color"])
 
 
 

@@ -109,9 +109,14 @@ class DNSpropagation:
         return set(l1) == set(l2)
 
 
-    def print_pretty_table(self, results: [], expected, show_ttl=False):
+    def print_pretty_table(self, results: [], expected, show_ttl=False, no_color=False):
         x = PrettyTable()
         x.field_names = ["Server", "Location", "TTL", "Answer"] if show_ttl else ["Server", "Location", "Answer"]
+
+        def colorize(code, text):
+            if no_color:
+                return text
+            return f'\033[{code}m' + text + '\033[0m'
 
         for result in results:
             tmp_answer = ""
@@ -123,15 +128,15 @@ class DNSpropagation:
                     tmp_string = a
 
                 if expected is not None and (tmp_string in expected or tmp_string[1:-1] in expected):
-                    tmp_string = '\033[92m' + tmp_string + '\033[0m'
+                    tmp_string = colorize(92, tmp_string)
                 elif expected is not None and tmp_string not in expected:
-                    tmp_string = '\033[91m' + tmp_string + '\033[0m'
+                    tmp_string = colorize(91, tmp_string)
                 elif result["answer"] == [] or result["answer"] is None:
-                    tmp_string = '\033[93m' + "-" + '\033[0m'
+                    tmp_string = colorize(93, "-")
                 elif tmp_string == "timed out":
-                    tmp_string = '\033[91m' + "timed out" + '\033[0m'
+                    tmp_string = colorize(91, tmp_string)
                 else:
-                    tmp_string = '\033[92m' + tmp_string + '\033[0m'
+                    tmp_string = colorize(92, tmp_string)
                 answers.append(tmp_string)
             result_string = "\n".join(answers)
             if show_ttl:
