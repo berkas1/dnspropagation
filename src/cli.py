@@ -31,6 +31,10 @@ def main():
     parser.add_argument("--ttl",
                         action="store_true",
                         help="Show TTL value in the output.")
+    parser.add_argument("--timeout",
+                        type=float,
+                        default=None,
+                        help="Timeout in seconds for each DNS query (e.g. 2.5). Defaults to dnspython's built-in timeout.")
 
 
     parser.add_argument("--random",
@@ -126,7 +130,7 @@ def main():
 
     args_dict["domain"] = checker.sanitize_domain(args_dict["domain"])
 
-    results = checker.check_entries(dns_servers, args_dict["record_type"], args_dict["domain"])
+    results = checker.check_entries(dns_servers, args_dict["record_type"], args_dict["domain"], timeout=args_dict["timeout"])
 
     if args_dict["json"]:
         print(json.dumps(checker.dns_answer_to_strings(results, show_ttl=args_dict["ttl"])))

@@ -78,12 +78,14 @@ class DNSpropagation:
         domain = domain.split("/")[0]
         return domain
 
-    def check_entries(self, servers: [], record_type, domain):
+    def check_entries(self, servers: [], record_type, domain, timeout=None):
         results = []
         for server in servers:
             try:
                 resolver = dns.resolver.Resolver()
                 resolver.nameservers = [server["ipv4"]]
+                if timeout is not None:
+                    resolver.lifetime = timeout
                 answer = resolver.resolve(domain, record_type)
             except dns.resolver.NoAnswer:
                 results.append({"server": server, "answer": [], "ttl": None})

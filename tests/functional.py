@@ -231,6 +231,30 @@ def test_expected_match():
     assert result.returncode == 0
 
 
+# --- timeout ---
+
+def test_timeout_valid():
+    result = run('--json', '--timeout', '5', '--server', '8.8.8.8', 'A', 'dns.google')
+    assert result.returncode == 0
+    data = json.loads(result.stdout)
+    assert len(data[0]["answer"]) > 0
+
+
+def test_timeout_float():
+    result = run('--json', '--timeout', '2.5', '--server', '8.8.8.8', 'A', 'dns.google')
+    assert result.returncode == 0
+    data = json.loads(result.stdout)
+    assert len(data[0]["answer"]) > 0
+
+
+def test_timeout_triggers():
+    # 0.001s timeout against a real server should always time out
+    result = run('--json', '--timeout', '0.001', '--server', '8.8.8.8', 'A', 'dns.google')
+    assert result.returncode == 0
+    data = json.loads(result.stdout)
+    assert data[0]["answer"] == ["timed out"]
+
+
 # --- NXDOMAIN ---
 
 def test_domain_not_found():
