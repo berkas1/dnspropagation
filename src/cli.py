@@ -39,6 +39,9 @@ def main():
                         default=None,
                         help="Timeout in seconds for each DNS query (e.g. 2.5). Defaults to dnspython's built-in timeout.")
 
+    parser.add_argument("--html",
+                        action="store_true",
+                        help="Print results as a self-contained HTML page.")
 
     parser.add_argument("--random",
                         type=int,
@@ -144,7 +147,10 @@ def main():
     elif args_dict["yaml"]:
         print(yaml.dump(checker.dns_answer_to_strings(results, show_ttl=args_dict["ttl"])))
         exit(0)
-
+    elif args_dict["html"]:
+        print(checker.generate_html(results, args_dict["record_type"], args_dict["domain"],
+                                    expected=args_dict["expected"], show_ttl=args_dict["ttl"]))
+        exit(0)
 
     checker.print_pretty_table(results, args_dict["expected"], show_ttl=args_dict["ttl"], no_color=args_dict["no_color"])
 

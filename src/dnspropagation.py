@@ -1,9 +1,12 @@
 import copy
 import random
+import string
 import sys
 import yaml
 import dns.resolver
 import json
+from datetime import datetime
+from pathlib import Path
 from textwrap import fill
 from prettytable import PrettyTable, ALL
 
@@ -105,6 +108,43 @@ class DNSpropagation:
                 results.append({"server": server, "answer": output, "ttl": answer.rrset.ttl})
 
         return results
+
+    def generate_html(self, results: [], record_type: str, domain: str, expected=None, show_ttl=False) -> str:
+        rows = ""
+        for result in results:
+            answers = []
+            for a in result["answer"]:
+                text = a.to_text().strip('"') if not isinstance(a, str) else a.strip('"')
+                if expected is not None and (text in expected or text[1:-1] in expected):
+                    answers.append(f'<span class="ok">{text}</span>')
+                elif expected is not None:
+                    answers.append(f'<span class="fail">{text}</span>')
+                elif text == "timed out":
+                    answers.append(f'<span class="fail">{text}</span>')
+                else:
+                    answers.append(f'<span class="ok">{text}</span>')
+            answer_html = "<br>".join(answers) if answers else '<span class="empty">—</span>'
+            ttl_cell = f'<td>{result.get("ttl") or "—"}</td>' if show_ttl else ""
+            rows += f"""
+            <tr>
+                <td>{result["server"]["ipv4"]}</td>
+                <td>{result["server"]["country"] or "—"}</td>
+                {ttl_cell}
+                <td>{answer_html}</td>
+            </tr>"""
+
+        ttl_header = "<th>TTL</th>" if show_ttl else ""
+        generated_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        template_path = Path(__file__).parent / "templates" / "report.html"
+        tmpl = string.Template(template_path.read_text())
+        return tmpl.substitute(
+            record_type=record_type.upper(),
+            domain=domain,
+            generated_at=generated_at,
+            rows=rows,
+            ttl_header=ttl_header,
+        )
 
     def compare_lists(self, list1, list2):
         l1 = copy.deepcopy(list1)
