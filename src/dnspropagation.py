@@ -1,4 +1,5 @@
 import copy
+import random
 import sys
 import yaml
 import dns.resolver
@@ -67,6 +68,9 @@ class DNSpropagation:
             res.append(self.dns_answer_to_strings(tmp))
 
         print(json.dumps(res[0]))
+
+    def random_servers(self, servers: [], n: int) -> []:
+        return random.sample(servers, min(n, len(servers)))
 
     def sanitize_domain(self, domain: str) -> str:
         # Remove protocol (e.g. https://)

@@ -231,6 +231,39 @@ def test_expected_match():
     assert result.returncode == 0
 
 
+# --- random ---
+
+def test_random_selects_n_servers():
+    result = run('--json', '--random', '2', 'A', 'dns.google')
+    assert result.returncode == 0
+    data = json.loads(result.stdout)
+    assert len(data) == 2
+
+
+def test_random_one_server():
+    result = run('--json', '--random', '1', 'A', 'dns.google')
+    assert result.returncode == 0
+    data = json.loads(result.stdout)
+    assert len(data) == 1
+
+
+def test_random_exceeds_pool_returns_all():
+    # there are 5 default servers; requesting more should return all 5
+    result = run('--json', '--random', '100', 'A', 'dns.google')
+    assert result.returncode == 0
+    data = json.loads(result.stdout)
+    assert len(data) == 5
+
+
+def test_random_respects_country_filter():
+    # only 1 server in Czechia, random 2 should still return 1
+    result = run('--json', '--random', '2', '--country', 'Czechia', 'A', 'dns.google')
+    assert result.returncode == 0
+    data = json.loads(result.stdout)
+    assert len(data) == 1
+    assert data[0]["server"]["country"] == "Czechia"
+
+
 # --- timeout ---
 
 def test_timeout_valid():

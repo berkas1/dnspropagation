@@ -124,6 +124,9 @@ def main():
     # filter DNS servers
     dns_servers = checker.filter_servers(dns_servers, args_dict["country"], args_dict["owner"])
 
+    if args_dict["random"] is not None:
+        dns_servers = checker.random_servers(dns_servers, args_dict["random"])
+
 
     # run multiple checks at once
     if args_dict["file"] is not None:
