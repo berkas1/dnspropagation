@@ -5,6 +5,10 @@ Simple CLI utility to check propagation of DNS records using multiple DNS server
 ## Installation
 ```
 pip install dnspropagation
+# or 
+pipx install dnspropagation
+# or run in docker
+docker run berkas1/dnspropagation a google.com
 ```
 
 ## Usage
@@ -16,7 +20,7 @@ dnspropagation a google.com
 docker run berkas1/dnspropagation a google.com
 ```
 
-It will check entries for a given type and domain name using five default public nameservers. It returns a human-readable colorful table. You can use `--json` or `--yaml` parameters to make it machine-readable.
+It will check entries for a given type and domain name using six default public nameservers. It returns a human-readable colorful table. You can use `--json` or `--yaml` parameters to make it machine-readable.
 
 ![Table 1](extras/table1.png)
 
@@ -36,8 +40,8 @@ You can expect a value to be returned by DNS servers. If this value is returned,
 ![expect1](extras/expect1.png)
 
 ### Filtering DNS servers
-When using the default DNS servers or a custom list, you can limit which servers you want to query using parameters `--country` and `--owner`.
+When using the default DNS servers or a custom list, you can limit which servers you want to query using parameters `--tags` and `--owner`.
 Both can be used multiple times. When used, the AND operation is used.
 
-![owner](extras/owner1.png)
-
+### Generate HTML output
+Using `--html` parameter will output HTML code to STDOUT that will show simple responsive page with the table.

@@ -7,11 +7,11 @@ import yaml
 
 import dnspropagation
 
-version = "0.0.5"
+version = "0.0.6"
 
 def main():
     dns_servers = []
-    args_dict = {'json': False, 'simple': False, 'debug': False, 'dnslist': None, 'random': None, 'country': None,
+    args_dict = {'json': False, 'simple': False, 'debug': False, 'dnslist': None, 'random': None, 'tags': None,
                  'owner': None, 'expected': None, 'server': None, 'custom_list': None, 'show_default': False}
 
     parser = argparse.ArgumentParser()
@@ -46,10 +46,10 @@ def main():
     parser.add_argument("--random",
                         type=int,
                         help="Selects N random DNS server to query")
-    parser.add_argument("--country",
+    parser.add_argument("--tags",
                         type=str,
                         action="append",
-                        help="Use only DNS servers from given country. The argument can be used multiple times.")
+                        help="Filter DNS servers by tag. Accepts comma-separated values and can be used multiple times.")
     parser.add_argument("--owner",
                         type=str,
                         action="append",
@@ -84,6 +84,10 @@ def main():
     # Parse the arguments
     args = parser.parse_args()
     args_dict = vars(args)
+
+    # Flatten comma-separated tag values
+    if args_dict["tags"]:
+        args_dict["tags"] = [t.strip() for entry in args_dict["tags"] for t in entry.split(",")]
 
     checker = dnspropagation.DNSpropagation()
     checker.set_args_dict(args_dict)
@@ -120,12 +124,12 @@ def main():
             tmp_server = {
                 "ipv4": s,
                 "owner": None,
-                "country": None,
+                "tags": [],
             }
             dns_servers.append(tmp_server)
 
     # filter DNS servers
-    dns_servers = checker.filter_servers(dns_servers, args_dict["country"], args_dict["owner"])
+    dns_servers = checker.filter_servers(dns_servers, args_dict["tags"], args_dict["owner"])
 
     if args_dict["random"] is not None:
         dns_servers = checker.random_servers(dns_servers, args_dict["random"])
@@ -134,7 +138,7 @@ def main():
     # run multiple checks at once
     if args_dict["file"] is not None:
         to_check = checker.parse_yaml(args_dict["file"])
-        checker.multicheck(to_check, args_dict["country"], args_dict["owner"])
+        checker.multicheck(to_check, args_dict["tags"], args_dict["owner"])
         exit(0)
 
     args_dict["domain"] = checker.sanitize_domain(args_dict["domain"])
