@@ -1,6 +1,6 @@
 [project]
 name = "dnspropagation"
-version = "0.0.6"
+version = "0.0.7"
 authors = [
   { name="Simon Berka", email="berka@berkasimon.com" },
 ]
@@ -20,8 +20,14 @@ classifiers = [
 
 
 [project.scripts]
-dnspropagation = "cli:main"
+dnspropagation = "dnspropagation.cli:main"
 
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"dnspropagation" = ["templates/*.html"]
 
 [tool.setuptools.dynamic]
 dependencies = {file = ["requirements.txt"]}

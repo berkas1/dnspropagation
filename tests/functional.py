@@ -7,10 +7,12 @@ import yaml
 
 
 def run(*args):
+    env = {**os.environ, 'PYTHONPATH': 'src'}
     return subprocess.run(
-        ['python', 'src/cli.py', *args],
+        ['python', '-m', 'dnspropagation.cli', *args],
         stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE
+        stderr=subprocess.PIPE,
+        env=env
     )
 
 

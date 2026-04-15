@@ -5,9 +5,12 @@ import sys
 import yaml
 #import pkg_resources
 
-import dnspropagation
+try:
+    from dnspropagation.core import DNSpropagation
+except ImportError:
+    from core import DNSpropagation
 
-version = "0.0.6"
+version = "0.0.7"
 
 def main():
     dns_servers = []
@@ -89,7 +92,7 @@ def main():
     if args_dict["tags"]:
         args_dict["tags"] = [t.strip() for entry in args_dict["tags"] for t in entry.split(",")]
 
-    checker = dnspropagation.DNSpropagation()
+    checker = DNSpropagation()
     checker.set_args_dict(args_dict)
 
 
