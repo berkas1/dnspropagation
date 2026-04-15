@@ -153,17 +153,26 @@ def test_filter_owner_multiple():
     result = run('--json', '--owner', 'google', '--owner', 'cloudflare', 'A', 'dns.google')
     assert result.returncode == 0
     data = json.loads(result.stdout)
-    assert len(data) == 2
+    assert len(data) == 3
     owners = {d["server"]["owner"] for d in data}
     assert owners == {"google", "cloudflare"}
 
 
-def test_filter_country():
-    result = run('--json', '--country', 'Czechia', 'A', 'dns.google')
+def test_filter_tags():
+    result = run('--json', '--tags', 'czechia', 'A', 'dns.google')
     assert result.returncode == 0
     data = json.loads(result.stdout)
     assert len(data) == 1
-    assert data[0]["server"]["country"] == "Czechia"
+    assert "czechia" in data[0]["server"]["tags"]
+
+
+def test_filter_tags_multiple_must_all_match():
+    # "global,unfiltered" — server must have both tags; adult-blocking server has global but not unfiltered
+    result = run('--json', '--tags', 'global,unfiltered', 'A', 'dns.google')
+    assert result.returncode == 0
+    data = json.loads(result.stdout)
+    assert all("global" in s["server"]["tags"] and "unfiltered" in s["server"]["tags"] for s in data)
+    assert not any("adult-blocking" in s["server"]["tags"] for s in data)
 
 
 def test_filter_nonexistent_owner_returns_empty():
@@ -192,7 +201,7 @@ def test_json_structure():
     assert "answer" in entry
     assert "ipv4" in entry["server"]
     assert "owner" in entry["server"]
-    assert "country" in entry["server"]
+    assert "tags" in entry["server"]
 
 
 # --- custom list ---
@@ -210,7 +219,7 @@ def test_custom_list_not_found():
 
 
 def test_custom_list_tmp():
-    servers = [{"ipv4": "8.8.8.8", "owner": "google", "country": "global"}]
+    servers = [{"ipv4": "8.8.8.8", "owner": "google", "tags": ["global"]}]
     with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
         yaml.dump(servers, f)
         tmp_path = f.name
@@ -248,20 +257,20 @@ def test_random_one_server():
 
 
 def test_random_exceeds_pool_returns_all():
-    # there are 5 default servers; requesting more should return all 5
+    # there are 6 default servers; requesting more should return all 6
     result = run('--json', '--random', '100', 'A', 'dns.google')
     assert result.returncode == 0
     data = json.loads(result.stdout)
-    assert len(data) == 5
+    assert len(data) == 6
 
 
-def test_random_respects_country_filter():
-    # only 1 server in Czechia, random 2 should still return 1
-    result = run('--json', '--random', '2', '--country', 'Czechia', 'A', 'dns.google')
+def test_random_respects_tags_filter():
+    # only 1 server has both "czechia" and "unfiltered", random 2 should still return 1
+    result = run('--json', '--random', '2', '--tags', 'czechia,unfiltered', 'A', 'dns.google')
     assert result.returncode == 0
     data = json.loads(result.stdout)
     assert len(data) == 1
-    assert data[0]["server"]["country"] == "Czechia"
+    assert "czechia" in data[0]["server"]["tags"]
 
 
 # --- timeout ---

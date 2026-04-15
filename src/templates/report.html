@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DNS Propagation — ${record_type} ${domain}</title>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            background: #0f1117;
+            color: #e2e8f0;
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 14px;
+            padding: 2rem;
+        }
+        header {
+            margin-bottom: 2rem;
+        }
+        h1 {
+            font-size: 1.4rem;
+            font-weight: 600;
+            color: #f8fafc;
+            margin-bottom: 0.4rem;
+        }
+        .meta {
+            color: #64748b;
+            font-size: 0.85rem;
+        }
+        .meta span {
+            color: #94a3b8;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th {
+            background: #1e2433;
+            color: #94a3b8;
+            text-align: left;
+            padding: 0.6rem 1rem;
+            font-weight: 500;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            border-bottom: 1px solid #2d3748;
+        }
+        td {
+            padding: 0.65rem 1rem;
+            border-bottom: 1px solid #1e2433;
+            vertical-align: top;
+        }
+        tr:last-child td {
+            border-bottom: none;
+        }
+        tr:hover td {
+            background: #151a27;
+        }
+        .ok   { color: #4ade80; }
+        .fail { color: #f87171; }
+        .empty { color: #475569; }
+        @media (max-width: 600px) {
+            body { padding: 1rem; }
+            td, th { padding: 0.5rem 0.6rem; }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>DNS Propagation: <span style="color:#7dd3fc">${record_type}</span> ${domain}</h1>
+        <p class="meta">Generated: <span>${generated_at}</span></p>
+    </header>
+    <table>
+        <thead>
+            <tr>
+                <th>Server</th>
+                <th>Tags</th>
+                ${ttl_header}
+                <th>Answer</th>
+            </tr>
+        </thead>
+        <tbody>${rows}
+        </tbody>
+    </table>
+</body>
+</html>

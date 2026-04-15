@@ -1,9 +1,12 @@
 import copy
 import random
+import string
 import sys
 import yaml
 import dns.resolver
 import json
+from datetime import datetime
+from pathlib import Path
 from textwrap import fill
 from prettytable import PrettyTable, ALL
 
@@ -12,11 +15,12 @@ class DNSpropagation:
     def __init__(self):
         self.args_dict = {'json': False, 'simple': False, 'debug': False, 'dnslist': None, 'random': None, 'country': None, 'owner': None, 'expected': None, 'server': None, 'custom_list': None, 'show_default': False}
         self.dns_servers = []
-        self.default_dns = [{"ipv4": "8.8.8.8", "owner": "google", "country": "global"},
-                       {"ipv4": "1.1.1.1", "owner": "cloudflare", "country": "global"},
-                       {"ipv4": "193.17.47.1", "owner": "nic.cz", "country": "Czechia"},
-                       {"ipv4": "9.9.9.9", "owner": "quad9", "country": "Switzerland"},
-                       {"ipv4": "195.243.214.4", "owner": "Deutsche Telekom", "country": "Germany"}]
+        self.default_dns = [{"ipv4": "8.8.8.8", "owner": "google", "tags": ["global", "unfiltered"]},
+                       {"ipv4": "1.1.1.1", "owner": "cloudflare", "tags": ["global", "unfiltered"]},
+                       {"ipv4": "1.1.1.3", "owner": "cloudflare", "tags": ["global", "adult-blocking"]},
+                       {"ipv4": "193.17.47.1", "owner": "nic.cz", "tags": ["czechia", "unfiltered"]},
+                       {"ipv4": "9.9.9.9", "owner": "quad9", "tags": ["switzerland", "unfiltered"]},
+                       {"ipv4": "195.243.214.4", "owner": "Deutsche Telekom", "tags": ["germany", "unfiltered"]}]
 
     def set_args_dict(self, args_dict):
         self.args_dict = args_dict
@@ -50,10 +54,12 @@ class DNSpropagation:
         return output
 
 
-    def filter_servers(self, data, country=None, owner=None):
+    def filter_servers(self, data, tags=None, owner=None):
         filtered_data = []
         for item in data:
-            if (country is None or item["country"] in country) and (owner is None or item["owner"] in owner):
+            tags_match = tags is None or all(t in (item.get("tags") or []) for t in tags)
+            owner_match = owner is None or item["owner"] in owner
+            if tags_match and owner_match:
                 filtered_data.append(item)
 
         self.dns_servers = filtered_data
@@ -106,6 +112,44 @@ class DNSpropagation:
 
         return results
 
+    def generate_html(self, results: [], record_type: str, domain: str, expected=None, show_ttl=False) -> str:
+        rows = ""
+        for result in results:
+            answers = []
+            for a in result["answer"]:
+                text = a.to_text().strip('"') if not isinstance(a, str) else a.strip('"')
+                if expected is not None and (text in expected or text[1:-1] in expected):
+                    answers.append(f'<span class="ok">{text}</span>')
+                elif expected is not None:
+                    answers.append(f'<span class="fail">{text}</span>')
+                elif text == "timed out":
+                    answers.append(f'<span class="fail">{text}</span>')
+                else:
+                    answers.append(f'<span class="ok">{text}</span>')
+            answer_html = "<br>".join(answers) if answers else '<span class="empty">—</span>'
+            ttl_cell = f'<td>{result.get("ttl") or "—"}</td>' if show_ttl else ""
+            tags_display = ", ".join(result["server"].get("tags") or []) or "—"
+            rows += f"""
+            <tr>
+                <td>{result["server"]["ipv4"]}</td>
+                <td>{tags_display}</td>
+                {ttl_cell}
+                <td>{answer_html}</td>
+            </tr>"""
+
+        ttl_header = "<th>TTL</th>" if show_ttl else ""
+        generated_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        template_path = Path(__file__).parent / "templates" / "report.html"
+        tmpl = string.Template(template_path.read_text())
+        return tmpl.substitute(
+            record_type=record_type.upper(),
+            domain=domain,
+            generated_at=generated_at,
+            rows=rows,
+            ttl_header=ttl_header,
+        )
+
     def compare_lists(self, list1, list2):
         l1 = copy.deepcopy(list1)
         l2 = copy.deepcopy(list2)
@@ -115,7 +159,7 @@ class DNSpropagation:
 
     def print_pretty_table(self, results: [], expected, show_ttl=False, no_color=False):
         x = PrettyTable()
-        x.field_names = ["Server", "Location", "TTL", "Answer"] if show_ttl else ["Server", "Location", "Answer"]
+        x.field_names = ["Server", "Tags", "TTL", "Answer"] if show_ttl else ["Server", "Tags", "Answer"]
 
         def colorize(code, text):
             if no_color:
@@ -143,10 +187,11 @@ class DNSpropagation:
                     tmp_string = colorize(92, tmp_string)
                 answers.append(tmp_string)
             result_string = "\n".join(answers)
+            tags_display = ", ".join(result["server"].get("tags") or [])
             if show_ttl:
-                x.add_row([result["server"]["ipv4"], result["server"]["country"], result.get("ttl"), result_string])
+                x.add_row([result["server"]["ipv4"], tags_display, result.get("ttl"), result_string])
             else:
-                x.add_row([result["server"]["ipv4"], result["server"]["country"], result_string])
+                x.add_row([result["server"]["ipv4"], tags_display, result_string])
 
 
         x._max_width = {"Answer": 70}
