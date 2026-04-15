@@ -1,4 +1,5 @@
 import copy
+import importlib.resources
 import random
 import string
 import sys
@@ -140,8 +141,11 @@ class DNSpropagation:
         ttl_header = "<th>TTL</th>" if show_ttl else ""
         generated_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-        template_path = Path(__file__).parent / "templates" / "report.html"
-        tmpl = string.Template(template_path.read_text())
+        try:
+            tmpl_text = (importlib.resources.files(__name__) / "templates" / "report.html").read_text(encoding="utf-8")
+        except TypeError:
+            tmpl_text = (Path(__file__).parent / "templates" / "report.html").read_text(encoding="utf-8")
+        tmpl = string.Template(tmpl_text)
         return tmpl.substitute(
             record_type=record_type.upper(),
             domain=domain,
@@ -199,5 +203,3 @@ class DNSpropagation:
         x.hrules = ALL
 
         print(x)
-
-
