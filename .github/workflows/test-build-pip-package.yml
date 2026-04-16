@@ -1,0 +1,21 @@
+name: test-build-pip-package
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test-pip-package:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker build -f tests/Dockerfile-test-pip-package -t dnspropagation-pip-test .
+
+      - name: Run tests against installed pip package
+        run: docker run --rm dnspropagation-pip-test
