@@ -1,0 +1,23 @@
+FROM python:3.13-alpine AS builder
+
+WORKDIR /build
+
+COPY pyproject.toml requirements.txt ./
+COPY src/ ./src/
+RUN pip install --no-cache-dir build && python -m build --wheel
+
+
+FROM python:3.13-alpine AS tester
+
+WORKDIR /app
+
+# Install the built wheel plus test dependencies.
+# src/ is intentionally NOT copied so PYTHONPATH=src (set inside functional.py)
+# resolves to nothing, forcing tests to use the installed package.
+COPY --from=builder /build/dist/*.whl ./
+RUN pip install --no-cache-dir *.whl pytest PyYAML
+
+COPY tests/ ./tests/
+COPY custom-list.yaml .
+
+CMD ["python", "-m", "pytest", "tests/functional.py", "-v"]
