@@ -55,7 +55,7 @@ class DNSpropagation:
                 data = resp.read(_REMOTE_LIST_MAX_BYTES + 1)
         except urllib.error.HTTPError as exc:
             print(f"Error fetching remote server list: HTTP {exc.code} {exc.reason}")
-            sys.exit(13)
+            sys.exit(15)
         except urllib.error.URLError as exc:
             reason = exc.reason if isinstance(exc.reason, str) else str(exc.reason)
             print(f"Error fetching remote server list: {reason}")
@@ -72,19 +72,19 @@ class DNSpropagation:
     def _validate_server_list(self, servers) -> list:
         if not isinstance(servers, list):
             print("Error: server list must be a YAML sequence.")
-            sys.exit(14)
+            sys.exit(16)
         for i, entry in enumerate(servers):
             if not isinstance(entry, dict):
                 print(f"Error: entry {i} is not a mapping.")
-                sys.exit(14)
+                sys.exit(16)
             if "ipv4" not in entry:
                 print(f"Error: entry {i} is missing required 'ipv4' field.")
-                sys.exit(14)
+                sys.exit(16)
             try:
                 ipaddress.ip_address(str(entry["ipv4"]))
             except ValueError:
                 print(f"Error: entry {i} has an invalid IP address: {entry['ipv4']!r}")
-                sys.exit(14)
+                sys.exit(16)
         return servers
 
     def parse_yaml(self, file_path):

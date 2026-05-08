@@ -134,6 +134,10 @@ def main():
     # filter DNS servers
     dns_servers = checker.filter_servers(dns_servers, args_dict["tags"], args_dict["owner"])
 
+    if not dns_servers:
+        print("No DNS servers matched the specified filters.")
+        sys.exit(3)
+
     if args_dict["random"] is not None:
         dns_servers = checker.random_servers(dns_servers, args_dict["random"])
 

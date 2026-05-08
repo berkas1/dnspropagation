@@ -3,19 +3,18 @@ import socketserver
 import threading
 from contextlib import contextmanager
 
-import pytest
-
 
 @contextmanager
-def serve_yaml(content: bytes):
-    """Start a local HTTP server that serves `content` for any GET request."""
+def serve_yaml(content: bytes, status: int = 200):
+    """Start a local HTTP server that responds with `status` and `content` for any GET request."""
     class Handler(http.server.BaseHTTPRequestHandler):
         def do_GET(self):
-            self.send_response(200)
+            self.send_response(status)
             self.send_header("Content-Type", "application/yaml")
             self.send_header("Content-Length", str(len(content)))
             self.end_headers()
-            self.wfile.write(content)
+            if content:
+                self.wfile.write(content)
 
         def log_message(self, *args):
             pass

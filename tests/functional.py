@@ -182,9 +182,7 @@ def test_filter_tags_multiple_must_all_match():
 
 def test_filter_nonexistent_owner_returns_empty():
     result = run('--json', '--owner', 'nonexistent_owner_xyz', 'A', 'dns.google')
-    assert result.returncode == 0
-    data = json.loads(result.stdout)
-    assert data == []
+    assert result.returncode == 3
 
 
 # --- multiple servers ---
@@ -337,18 +335,24 @@ def test_custom_list_http_unreachable():
     assert result.returncode == 13
 
 
+def test_custom_list_http_error_response():
+    with serve_yaml(b"", status=404) as url:
+        result = run('--json', '--custom_list', url, 'A', 'dns.google')
+    assert result.returncode == 15
+
+
 def test_custom_list_http_missing_ipv4_field():
     bad = [{"owner": "nobody", "tags": []}]
     with serve_yaml(yaml.dump(bad).encode()) as url:
         result = run('--json', '--custom_list', url, 'A', 'dns.google')
-    assert result.returncode == 14
+    assert result.returncode == 16
 
 
 def test_custom_list_http_invalid_ip():
     bad = [{"ipv4": "not-an-ip", "owner": "nobody", "tags": []}]
     with serve_yaml(yaml.dump(bad).encode()) as url:
         result = run('--json', '--custom_list', url, 'A', 'dns.google')
-    assert result.returncode == 14
+    assert result.returncode == 16
 
 
 def test_custom_list_local_invalid_ip():
@@ -358,6 +362,11 @@ def test_custom_list_local_invalid_ip():
         tmp_path = f.name
     try:
         result = run('--json', '--custom_list', tmp_path, 'A', 'dns.google')
-        assert result.returncode == 14
+        assert result.returncode == 16
     finally:
         os.unlink(tmp_path)
+
+
+def test_empty_server_list_after_filter():
+    result = run('--json', '--tags', 'nonexistent_tag_xyz', 'A', 'dns.google')
+    assert result.returncode == 3
