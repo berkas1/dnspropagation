@@ -34,7 +34,12 @@ Supply one or more servers with `--server`:
 dnspropagation --server 1.1.1.1 --server 8.8.8.8 a google.com
 ```
 
-Or provide a YAML-formatted server list via `--custom_list` (see [custom-list.yaml](custom-list.yaml) for the expected format).
+Or provide a YAML-formatted server list via `--custom_list` using a local file path or an `http(s)://` URL:
+```shell
+dnspropagation --custom_list custom-list.yaml a google.com
+dnspropagation --custom_list https://example.com/my-servers.yaml a google.com
+```
+See [custom-list.yaml](custom-list.yaml) for the expected format. Remote lists are fetched over HTTPS (recommended) or HTTP with a 10-second timeout and a 1 MB size limit. Every entry must contain a valid `ipv4` field.
 
 ### Expected results
 

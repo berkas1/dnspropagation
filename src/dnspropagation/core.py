@@ -1,8 +1,12 @@
 import copy
 import importlib.resources
+import ipaddress
 import random
 import string
 import sys
+import urllib.error
+import urllib.parse
+import urllib.request
 import yaml
 import dns.resolver
 import json
@@ -10,6 +14,9 @@ from datetime import datetime
 from pathlib import Path
 from textwrap import fill
 from prettytable import PrettyTable, ALL
+
+_REMOTE_LIST_MAX_BYTES = 1 * 1024 * 1024  # 1 MB
+_REMOTE_LIST_TIMEOUT = 10  # seconds
 
 
 class DNSpropagation:
@@ -29,14 +36,79 @@ class DNSpropagation:
     def set_dns_servers(self, dns_servers):
         self.dns_servers = dns_servers
 
+    @staticmethod
+    def _is_url(path: str) -> bool:
+        return "://" in path
+
+    def _fetch_remote_yaml(self, url: str) -> str:
+        parsed = urllib.parse.urlparse(url)
+        if parsed.scheme not in ("http", "https"):
+            print(f"Error: unsupported URL scheme '{parsed.scheme}'. Only http and https are supported.")
+            sys.exit(11)
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": "dnspropagation"})
+            with urllib.request.urlopen(req, timeout=_REMOTE_LIST_TIMEOUT) as resp:
+                content_length = resp.headers.get("Content-Length")
+                if content_length and int(content_length) > _REMOTE_LIST_MAX_BYTES:
+                    print("Error: remote server list exceeds the 1 MB size limit.")
+                    sys.exit(12)
+                data = resp.read(_REMOTE_LIST_MAX_BYTES + 1)
+        except urllib.error.HTTPError as exc:
+            print(f"Error fetching remote server list: HTTP {exc.code} {exc.reason}")
+            sys.exit(13)
+        except urllib.error.URLError as exc:
+            reason = exc.reason if isinstance(exc.reason, str) else str(exc.reason)
+            print(f"Error fetching remote server list: {reason}")
+            sys.exit(13)
+        if len(data) > _REMOTE_LIST_MAX_BYTES:
+            print("Error: remote server list exceeds the 1 MB size limit.")
+            sys.exit(12)
+        try:
+            return data.decode("utf-8")
+        except UnicodeDecodeError:
+            print("Error: remote server list is not valid UTF-8.")
+            sys.exit(14)
+
+    def _validate_server_list(self, servers) -> list:
+        if not isinstance(servers, list):
+            print("Error: server list must be a YAML sequence.")
+            sys.exit(14)
+        for i, entry in enumerate(servers):
+            if not isinstance(entry, dict):
+                print(f"Error: entry {i} is not a mapping.")
+                sys.exit(14)
+            if "ipv4" not in entry:
+                print(f"Error: entry {i} is missing required 'ipv4' field.")
+                sys.exit(14)
+            try:
+                ipaddress.ip_address(str(entry["ipv4"]))
+            except ValueError:
+                print(f"Error: entry {i} has an invalid IP address: {entry['ipv4']!r}")
+                sys.exit(14)
+        return servers
+
     def parse_yaml(self, file_path):
+        if self._is_url(file_path):
+            raw = self._fetch_remote_yaml(file_path)
+            try:
+                return yaml.safe_load(raw)
+            except yaml.YAMLError as exc:
+                print(f"Error parsing remote YAML: {exc}")
+                sys.exit(14)
         try:
             with open(file_path, 'r') as f:
-                data = yaml.safe_load(f)
-                return data
+                return yaml.safe_load(f)
         except FileNotFoundError:
             print("specified file not found")
             sys.exit(10)
+        except yaml.YAMLError as exc:
+            print(f"Error parsing YAML file: {exc}")
+            sys.exit(14)
+
+    def parse_server_list(self, path: str) -> list:
+        """Load and validate a DNS server list from a local file or http(s):// URL."""
+        data = self.parse_yaml(path)
+        return self._validate_server_list(data)
 
 
     def dns_answer_to_strings(self, answer: [], show_ttl=False) -> []:

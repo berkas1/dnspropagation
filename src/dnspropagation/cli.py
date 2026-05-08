@@ -68,7 +68,7 @@ def main():
                              " to add multiple servers.")
     parser.add_argument("--custom_list",
                         type=str,
-                        help="Path to custom YAML-formatted list of DNS servers to query.")
+                        help="Local file path or http(s):// URL to a custom YAML-formatted list of DNS servers to query.")
     parser.add_argument("--file",
                         type=str,
                         help="YAML formatted file")
@@ -119,7 +119,7 @@ def main():
         exit(1)
 
     if args_dict['custom_list']:
-        dns_servers = checker.parse_yaml(args_dict["custom_list"])
+        dns_servers = checker.parse_server_list(args_dict["custom_list"])
         checker.set_dns_servers(dns_servers)
 
     if args_dict["server"] is not None:
