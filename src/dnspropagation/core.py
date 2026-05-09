@@ -226,6 +226,17 @@ class DNSpropagation:
             ttl_header=ttl_header,
         )
 
+    def check_expected(self, results: list, expected: list) -> bool:
+        """Return False if any non-timeout answer is not in the expected list."""
+        for result in results:
+            for a in result["answer"]:
+                text = a.to_text() if not isinstance(a, str) else a
+                if text == "timed out":
+                    continue
+                if text not in expected and text[1:-1] not in expected:
+                    return False
+        return True
+
     def compare_lists(self, list1, list2):
         l1 = copy.deepcopy(list1)
         l2 = copy.deepcopy(list2)

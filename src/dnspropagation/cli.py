@@ -154,16 +154,16 @@ def main():
 
     if args_dict["json"]:
         print(json.dumps(checker.dns_answer_to_strings(results, show_ttl=args_dict["ttl"])))
-        exit(0)
     elif args_dict["yaml"]:
         print(yaml.dump(checker.dns_answer_to_strings(results, show_ttl=args_dict["ttl"])))
-        exit(0)
     elif args_dict["html"]:
         print(checker.generate_html(results, args_dict["record_type"], args_dict["domain"],
                                     expected=args_dict["expected"], show_ttl=args_dict["ttl"]))
-        exit(0)
+    else:
+        checker.print_pretty_table(results, args_dict["expected"], show_ttl=args_dict["ttl"], no_color=args_dict["no_color"])
 
-    checker.print_pretty_table(results, args_dict["expected"], show_ttl=args_dict["ttl"], no_color=args_dict["no_color"])
+    if args_dict["expected"] is not None and not checker.check_expected(results, args_dict["expected"]):
+        sys.exit(5)
 
 
 

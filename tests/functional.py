@@ -239,8 +239,23 @@ def test_custom_list_tmp():
 # --- expected values ---
 
 def test_expected_match():
-    result = run('--server', '8.8.8.8', '--expected', '8.8.8.8', 'A', 'dns.google')
+    # dns.google returns 8.8.8.8 and 8.8.4.4 — both must be listed as expected for exit 0
+    result = run('--server', '8.8.8.8', '--expected', '8.8.8.8', '--expected', '8.8.4.4', 'A', 'dns.google')
     assert result.returncode == 0
+
+
+def test_expected_no_match():
+    result = run('--server', '8.8.8.8', '--expected', '1.2.3.4', 'A', 'dns.google')
+    assert result.returncode == 5
+
+
+def test_expected_no_match_json_still_outputs():
+    result = run('--json', '--server', '8.8.8.8', '--expected', '1.2.3.4', 'A', 'dns.google')
+    assert result.returncode == 5
+    data = json.loads(result.stdout)
+    assert len(data[0]["answer"]) > 0
+
+
 
 
 # --- random ---
