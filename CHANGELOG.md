@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - `--custom_list` now accepts an `http://` or `https://` URL in addition to a local file path, allowing a DNS server list to be loaded remotely. Remote lists are fetched with a 10-second timeout and a 1 MB size limit. All entries (local and remote) are validated to contain a well-formed IP address in the `ipv4` field.
 - Exit code `3` when no DNS servers match the specified `--tags` or `--owner` filters.
+- Exit code `5` when `--expected` is set and at least one server returned an unexpected answer.
 - Exit code `15` for HTTP error responses (4xx/5xx) when fetching a remote server list.
 - Exit code `16` for server list schema validation failures (missing or invalid `ipv4` field).
 

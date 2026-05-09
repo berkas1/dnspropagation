@@ -16,7 +16,7 @@ except ImportError:
         EXIT_SUCCESS, EXIT_MISSING_ARGS, EXIT_NO_SERVERS, EXIT_EXPECTED_MISMATCH,
     )
 
-version = "0.0.7"
+version = "0.0.8"
 
 def main():
     dns_servers = []
