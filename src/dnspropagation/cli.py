@@ -7,8 +7,14 @@ import yaml
 
 try:
     from dnspropagation.core import DNSpropagation
+    from dnspropagation.exitcodes import (
+        EXIT_SUCCESS, EXIT_MISSING_ARGS, EXIT_NO_SERVERS, EXIT_EXPECTED_MISMATCH,
+    )
 except ImportError:
     from core import DNSpropagation
+    from exitcodes import (
+        EXIT_SUCCESS, EXIT_MISSING_ARGS, EXIT_NO_SERVERS, EXIT_EXPECTED_MISMATCH,
+    )
 
 version = "0.0.7"
 
@@ -99,11 +105,11 @@ def main():
 
     if args_dict["version"]:
         print(version)
-        exit(0)
+        exit(EXIT_SUCCESS)
 
     if len(sys.argv) <= 1:
         print("You have to specify record type and domain name. Run the program with the --help to show more information.")
-        exit(1)
+        exit(EXIT_MISSING_ARGS)
 
     if args_dict["custom_list"] is None and args_dict["server"] is None:
         dns_servers = checker.default_dns
@@ -112,11 +118,11 @@ def main():
                 print(yaml.dump(checker.default_dns))
             else:
                 print(checker.default_dns)
-            exit(0)
+            exit(EXIT_SUCCESS)
 
     if args_dict["file"] is None and (args_dict["record_type"] is None or args_dict["domain"] is None):
         print("You have to specify record type and domain name. Run the program with the --help to show more information.")
-        exit(1)
+        exit(EXIT_MISSING_ARGS)
 
     if args_dict['custom_list']:
         dns_servers = checker.parse_server_list(args_dict["custom_list"])
@@ -136,7 +142,7 @@ def main():
 
     if not dns_servers:
         print("No DNS servers matched the specified filters.")
-        sys.exit(3)
+        sys.exit(EXIT_NO_SERVERS)
 
     if args_dict["random"] is not None:
         dns_servers = checker.random_servers(dns_servers, args_dict["random"])
@@ -146,7 +152,7 @@ def main():
     if args_dict["file"] is not None:
         to_check = checker.parse_yaml(args_dict["file"])
         checker.multicheck(to_check, args_dict["tags"], args_dict["owner"])
-        exit(0)
+        exit(EXIT_SUCCESS)
 
     args_dict["domain"] = checker.sanitize_domain(args_dict["domain"])
 
@@ -163,7 +169,7 @@ def main():
         checker.print_pretty_table(results, args_dict["expected"], show_ttl=args_dict["ttl"], no_color=args_dict["no_color"])
 
     if args_dict["expected"] is not None and not checker.check_expected(results, args_dict["expected"]):
-        sys.exit(5)
+        sys.exit(EXIT_EXPECTED_MISMATCH)
 
 
 
