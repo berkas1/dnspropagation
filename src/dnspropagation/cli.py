@@ -7,10 +7,16 @@ import yaml
 
 try:
     from dnspropagation.core import DNSpropagation
+    from dnspropagation.exitcodes import (
+        EXIT_SUCCESS, EXIT_MISSING_ARGS, EXIT_NO_SERVERS, EXIT_EXPECTED_MISMATCH,
+    )
 except ImportError:
     from core import DNSpropagation
+    from exitcodes import (
+        EXIT_SUCCESS, EXIT_MISSING_ARGS, EXIT_NO_SERVERS, EXIT_EXPECTED_MISMATCH,
+    )
 
-version = "0.0.7"
+version = "0.0.8"
 
 def main():
     dns_servers = []
@@ -68,7 +74,7 @@ def main():
                              " to add multiple servers.")
     parser.add_argument("--custom_list",
                         type=str,
-                        help="Path to custom YAML-formatted list of DNS servers to query.")
+                        help="Local file path or http(s):// URL to a custom YAML-formatted list of DNS servers to query.")
     parser.add_argument("--file",
                         type=str,
                         help="YAML formatted file")
@@ -99,11 +105,11 @@ def main():
 
     if args_dict["version"]:
         print(version)
-        exit(0)
+        exit(EXIT_SUCCESS)
 
     if len(sys.argv) <= 1:
         print("You have to specify record type and domain name. Run the program with the --help to show more information.")
-        exit(1)
+        exit(EXIT_MISSING_ARGS)
 
     if args_dict["custom_list"] is None and args_dict["server"] is None:
         dns_servers = checker.default_dns
@@ -112,14 +118,14 @@ def main():
                 print(yaml.dump(checker.default_dns))
             else:
                 print(checker.default_dns)
-            exit(0)
+            exit(EXIT_SUCCESS)
 
     if args_dict["file"] is None and (args_dict["record_type"] is None or args_dict["domain"] is None):
         print("You have to specify record type and domain name. Run the program with the --help to show more information.")
-        exit(1)
+        exit(EXIT_MISSING_ARGS)
 
     if args_dict['custom_list']:
-        dns_servers = checker.parse_yaml(args_dict["custom_list"])
+        dns_servers = checker.parse_server_list(args_dict["custom_list"])
         checker.set_dns_servers(dns_servers)
 
     if args_dict["server"] is not None:
@@ -134,6 +140,10 @@ def main():
     # filter DNS servers
     dns_servers = checker.filter_servers(dns_servers, args_dict["tags"], args_dict["owner"])
 
+    if not dns_servers:
+        print("No DNS servers matched the specified filters.")
+        sys.exit(EXIT_NO_SERVERS)
+
     if args_dict["random"] is not None:
         dns_servers = checker.random_servers(dns_servers, args_dict["random"])
 
@@ -142,7 +152,7 @@ def main():
     if args_dict["file"] is not None:
         to_check = checker.parse_yaml(args_dict["file"])
         checker.multicheck(to_check, args_dict["tags"], args_dict["owner"])
-        exit(0)
+        exit(EXIT_SUCCESS)
 
     args_dict["domain"] = checker.sanitize_domain(args_dict["domain"])
 
@@ -150,16 +160,16 @@ def main():
 
     if args_dict["json"]:
         print(json.dumps(checker.dns_answer_to_strings(results, show_ttl=args_dict["ttl"])))
-        exit(0)
     elif args_dict["yaml"]:
         print(yaml.dump(checker.dns_answer_to_strings(results, show_ttl=args_dict["ttl"])))
-        exit(0)
     elif args_dict["html"]:
         print(checker.generate_html(results, args_dict["record_type"], args_dict["domain"],
                                     expected=args_dict["expected"], show_ttl=args_dict["ttl"]))
-        exit(0)
+    else:
+        checker.print_pretty_table(results, args_dict["expected"], show_ttl=args_dict["ttl"], no_color=args_dict["no_color"])
 
-    checker.print_pretty_table(results, args_dict["expected"], show_ttl=args_dict["ttl"], no_color=args_dict["no_color"])
+    if args_dict["expected"] is not None and not checker.check_expected(results, args_dict["expected"]):
+        sys.exit(EXIT_EXPECTED_MISMATCH)
 
 
 

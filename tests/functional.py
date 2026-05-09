@@ -1,9 +1,12 @@
 import json
 import os
+import socket
 import subprocess
 import tempfile
 
 import yaml
+
+from conftest import serve_yaml
 
 
 def run(*args):
@@ -179,9 +182,7 @@ def test_filter_tags_multiple_must_all_match():
 
 def test_filter_nonexistent_owner_returns_empty():
     result = run('--json', '--owner', 'nonexistent_owner_xyz', 'A', 'dns.google')
-    assert result.returncode == 0
-    data = json.loads(result.stdout)
-    assert data == []
+    assert result.returncode == 3
 
 
 # --- multiple servers ---
@@ -238,8 +239,23 @@ def test_custom_list_tmp():
 # --- expected values ---
 
 def test_expected_match():
-    result = run('--server', '8.8.8.8', '--expected', '8.8.8.8', 'A', 'dns.google')
+    # dns.google returns 8.8.8.8 and 8.8.4.4 — both must be listed as expected for exit 0
+    result = run('--server', '8.8.8.8', '--expected', '8.8.8.8', '--expected', '8.8.4.4', 'A', 'dns.google')
     assert result.returncode == 0
+
+
+def test_expected_no_match():
+    result = run('--server', '8.8.8.8', '--expected', '1.2.3.4', 'A', 'dns.google')
+    assert result.returncode == 5
+
+
+def test_expected_no_match_json_still_outputs():
+    result = run('--json', '--server', '8.8.8.8', '--expected', '1.2.3.4', 'A', 'dns.google')
+    assert result.returncode == 5
+    data = json.loads(result.stdout)
+    assert len(data[0]["answer"]) > 0
+
+
 
 
 # --- random ---
@@ -305,3 +321,67 @@ def test_domain_not_found():
     result = run('A', 'example.not.existing')
     assert result.returncode == 2
     assert b"Domain not found" in result.stdout
+
+
+# --- remote HTTP custom list ---
+
+def test_custom_list_http():
+    servers = [{"ipv4": "8.8.8.8", "owner": "google", "tags": ["global"]}]
+    with serve_yaml(yaml.dump(servers).encode()) as url:
+        result = run('--json', '--custom_list', url, 'A', 'dns.google')
+    assert result.returncode == 0
+    data = json.loads(result.stdout)
+    assert len(data) == 1
+    assert data[0]["server"]["ipv4"] == "8.8.8.8"
+
+
+def test_custom_list_http_unsupported_scheme():
+    result = run('--json', '--custom_list', 'ftp://example.com/list.yaml', 'A', 'dns.google')
+    assert result.returncode == 11
+
+
+def test_custom_list_http_unreachable():
+    # Bind then immediately close to get a guaranteed free port (connection refused)
+    s = socket.socket()
+    s.bind(('127.0.0.1', 0))
+    port = s.getsockname()[1]
+    s.close()
+    result = run('--json', '--custom_list', f'http://127.0.0.1:{port}/list.yaml', 'A', 'dns.google')
+    assert result.returncode == 13
+
+
+def test_custom_list_http_error_response():
+    with serve_yaml(b"", status=404) as url:
+        result = run('--json', '--custom_list', url, 'A', 'dns.google')
+    assert result.returncode == 15
+
+
+def test_custom_list_http_missing_ipv4_field():
+    bad = [{"owner": "nobody", "tags": []}]
+    with serve_yaml(yaml.dump(bad).encode()) as url:
+        result = run('--json', '--custom_list', url, 'A', 'dns.google')
+    assert result.returncode == 16
+
+
+def test_custom_list_http_invalid_ip():
+    bad = [{"ipv4": "not-an-ip", "owner": "nobody", "tags": []}]
+    with serve_yaml(yaml.dump(bad).encode()) as url:
+        result = run('--json', '--custom_list', url, 'A', 'dns.google')
+    assert result.returncode == 16
+
+
+def test_custom_list_local_invalid_ip():
+    bad = [{"ipv4": "999.999.999.999", "owner": "nobody", "tags": []}]
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
+        yaml.dump(bad, f)
+        tmp_path = f.name
+    try:
+        result = run('--json', '--custom_list', tmp_path, 'A', 'dns.google')
+        assert result.returncode == 16
+    finally:
+        os.unlink(tmp_path)
+
+
+def test_empty_server_list_after_filter():
+    result = run('--json', '--tags', 'nonexistent_tag_xyz', 'A', 'dns.google')
+    assert result.returncode == 3
