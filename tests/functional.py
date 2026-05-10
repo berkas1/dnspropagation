@@ -407,6 +407,23 @@ def test_custom_list_local_invalid_ip():
         os.unlink(tmp_path)
 
 
+def test_custom_list_local_malformed_yaml():
+    with tempfile.NamedTemporaryFile(mode='wb', suffix='.yaml', delete=False) as f:
+        f.write(b"key: [unclosed bracket\n")
+        tmp_path = f.name
+    try:
+        result = run('--json', '--custom_list', tmp_path, 'A', 'dns.google')
+        assert result.returncode == 14
+    finally:
+        os.unlink(tmp_path)
+
+
+def test_custom_list_http_malformed_yaml():
+    with serve_yaml(b"key: [unclosed bracket\n") as url:
+        result = run('--json', '--custom_list', url, 'A', 'dns.google')
+    assert result.returncode == 14
+
+
 def test_empty_server_list_after_filter():
     result = run('--json', '--tags', 'nonexistent_tag_xyz', 'A', 'dns.google')
     assert result.returncode == 3

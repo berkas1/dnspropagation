@@ -3,6 +3,10 @@
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.9] - Unreleased
+### Tests
+- Added tests for `--no-color` output and malformed YAML input.
+
 ## [0.0.8] - 2026-05-08
 ### Added
 - `--custom_list` now accepts an `http://` or `https://` URL in addition to a local file path, allowing a DNS server list to be loaded remotely. Remote lists are fetched with a 10-second timeout and a 1 MB size limit. All entries (local and remote) are validated to contain a well-formed IP address in the `ipv4` field.
