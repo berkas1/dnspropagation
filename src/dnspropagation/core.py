@@ -54,6 +54,17 @@ class DNSpropagation:
         return "://" in path
 
     def _fetch_remote_yaml(self, url: str) -> str:
+        """
+        Fetch a remote YAML file over HTTP/HTTPS and return its UTF-8 text.
+
+        Enforces a 1 MB limit via the Content-Length header (early abort) and
+        the actual byte count after reading (guards chunked/mis-reported
+        responses).  Exits on unsupported scheme, HTTP error, network failure,
+        size exceeded, or non-UTF-8 body.
+
+        :param url: A fully-qualified http:// or https:// URL.
+        :returns: The raw UTF-8 text of the remote file.
+        """
         parsed = urllib.parse.urlparse(url)
         if parsed.scheme not in ("http", "https"):
             print(f"Error: unsupported URL scheme '{parsed.scheme}'. Only http and https are supported.")
@@ -83,6 +94,18 @@ class DNSpropagation:
             sys.exit(EXIT_YAML_ERROR)
 
     def _validate_server_list(self, servers) -> list:
+        """
+        Validate the schema of a parsed YAML server list.
+
+        Checks that ``servers`` is a list of dicts where every entry contains
+        an ``ipv4`` key whose value is a valid IP address string.  Prints an
+        error message and exits with EXIT_SCHEMA_ERROR on the first violation
+        found.
+
+        :param servers: Object returned by yaml.safe_load(); expected to be a
+                        list of dicts each with at least an 'ipv4' key.
+        :returns: The original ``servers`` list unchanged if all entries pass.
+        """
         if not isinstance(servers, list):
             print("Error: server list must be a YAML sequence.")
             sys.exit(EXIT_SCHEMA_ERROR)
@@ -125,6 +148,20 @@ class DNSpropagation:
 
 
     def dns_answer_to_strings(self, answer: [], show_ttl=False) -> []:
+        """
+        Convert DNS answer records to plain string dicts for JSON/YAML output.
+
+        Each entry in ``answer`` is expected to have a ``server`` key, an
+        ``answer`` list of records (either strings or dnspython rdatatype
+        objects), and optionally a ``ttl`` value.  Record objects are
+        converted via ``.to_text()``; surrounding quotes are stripped from
+        all record values.
+
+        :param answer: List of per-server answer dicts from check_entries().
+        :param show_ttl: When True, include the ``ttl`` field in each output entry.
+        :returns: List of dicts with ``server``, ``answer`` (list of strings),
+                  and optionally ``ttl``.
+        """
         output = []
         for a in answer:
             tmp = {'server': a["server"], 'answer': []}
@@ -141,6 +178,17 @@ class DNSpropagation:
 
 
     def filter_servers(self, data, tags=None, owner=None):
+        """
+        Filter a server list by tags and/or owner and store the result.
+
+        All specified tags must be present on an entry for it to match.
+        Also sets ``self.dns_servers`` to the filtered result as a side effect.
+
+        :param data: List of server dicts to filter.
+        :param tags: List of tag strings that must all be present; None means no tag filter.
+        :param owner: List of owner strings to match against; None means no owner filter.
+        :returns: Filtered list of server dicts.
+        """
         filtered_data = []
         for item in data:
             tags_match = tags is None or all(t in (item.get("tags") or []) for t in tags)
@@ -165,6 +213,12 @@ class DNSpropagation:
         return random.sample(servers, min(n, len(servers)))
 
     def sanitize_domain(self, domain: str) -> str:
+        """
+        Strip protocol, port, and path from a domain string.
+
+        :param domain: Raw domain or URL string supplied by the user.
+        :returns: The bare hostname with no scheme, port, or path.
+        """
         # Remove protocol (e.g. https://)
         if "://" in domain:
             domain = domain.split("://", 1)[1]
@@ -258,6 +312,18 @@ class DNSpropagation:
 
 
     def print_pretty_table(self, results: [], expected, show_ttl=False, no_color=False):
+        """
+        Print DNS query results as a formatted table to stdout.
+
+        Each row contains the server IP, its tags, and the answer records.
+        Records are colourised green/red based on whether they match
+        ``expected``; pass ``no_color=True`` to suppress ANSI codes.
+
+        :param results: List of per-server result dicts from check_entries().
+        :param expected: List of expected answer strings for match highlighting, or None to skip.
+        :param show_ttl: When True, include a TTL column in the table.
+        :param no_color: When True, suppress ANSI colour codes in the output.
+        """
         x = PrettyTable()
         x.field_names = ["Server", "Tags", "TTL", "Answer"] if show_ttl else ["Server", "Tags", "Answer"]
 

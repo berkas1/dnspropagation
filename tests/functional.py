@@ -256,6 +256,31 @@ def test_expected_no_match_json_still_outputs():
     assert len(data[0]["answer"]) > 0
 
 
+# --- no-color ---
+
+def test_no_color_suppresses_ansi():
+    result = run('--no-color', '--server', '8.8.8.8', 'A', 'dns.google')
+    assert result.returncode == 0
+    assert b'\033[' not in result.stdout
+
+
+def test_default_output_contains_ansi():
+    # --expected always colorizes, so ANSI codes must be present without --no-color
+    result = run('--server', '8.8.8.8', '--expected', '8.8.8.8', '--expected', '8.8.4.4', 'A', 'dns.google')
+    assert result.returncode == 0
+    assert b'\033[' in result.stdout
+
+
+def test_no_color_with_expected_match():
+    result = run('--no-color', '--server', '8.8.8.8', '--expected', '8.8.8.8', '--expected', '8.8.4.4', 'A', 'dns.google')
+    assert result.returncode == 0
+    assert b'\033[' not in result.stdout
+
+
+def test_no_color_with_expected_mismatch():
+    result = run('--no-color', '--server', '8.8.8.8', '--expected', '1.2.3.4', 'A', 'dns.google')
+    assert result.returncode == 5
+    assert b'\033[' not in result.stdout
 
 
 # --- random ---
@@ -380,6 +405,23 @@ def test_custom_list_local_invalid_ip():
         assert result.returncode == 16
     finally:
         os.unlink(tmp_path)
+
+
+def test_custom_list_local_malformed_yaml():
+    with tempfile.NamedTemporaryFile(mode='wb', suffix='.yaml', delete=False) as f:
+        f.write(b"key: [unclosed bracket\n")
+        tmp_path = f.name
+    try:
+        result = run('--json', '--custom_list', tmp_path, 'A', 'dns.google')
+        assert result.returncode == 14
+    finally:
+        os.unlink(tmp_path)
+
+
+def test_custom_list_http_malformed_yaml():
+    with serve_yaml(b"key: [unclosed bracket\n") as url:
+        result = run('--json', '--custom_list', url, 'A', 'dns.google')
+    assert result.returncode == 14
 
 
 def test_empty_server_list_after_filter():
