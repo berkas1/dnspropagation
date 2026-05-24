@@ -41,8 +41,7 @@ jobs:
 
       - name: Build docs
         run: |
-          BASE_URL="https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/"
-          hugo --minify --baseURL "$BASE_URL" --source docs --destination "$PWD/public"   
+          hugo --minify --baseURL "https://dnspropagation.berka.dev/" --source docs --destination "$PWD/public"   
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
