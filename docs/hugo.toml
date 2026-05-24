@@ -1,0 +1,10 @@
+baseURL = "/"
+languageCode = "en-us"
+title = "dnspropagation"
+theme = "hugo-book"
+
+[params]
+  BookTheme = "dark"
+  BookToC = true
+  BookSearch = true
+  BookMenuFromSection = "docs"
