@@ -148,6 +148,18 @@ class DNSpropagation:
         return self._validate_server_list(data)
 
 
+    @staticmethod
+    def _record_text(record, strip_quotes=False) -> str:
+        """
+        Convert a single answer record to its text form.
+
+        :param record: A dnspython rdata object or an already-plain string.
+        :param strip_quotes: When True, strip surrounding double quotes.
+        :returns: The record as a string.
+        """
+        text = record if isinstance(record, str) else record.to_text()
+        return text.strip('"') if strip_quotes else text
+
     def dns_answer_to_strings(self, answer: [], show_ttl=False) -> []:
         """
         Convert DNS answer records to plain string dicts for JSON/YAML output.
@@ -169,10 +181,7 @@ class DNSpropagation:
             if show_ttl:
                 tmp['ttl'] = a.get('ttl')
             for r in a["answer"]:
-                if not isinstance(r, str):
-                    tmp["answer"].append(r.to_text().strip('"'))
-                else:
-                    tmp["answer"].append(r.strip('"'))
+                tmp["answer"].append(self._record_text(r, strip_quotes=True))
             output.append(tmp)
 
         return output
@@ -271,7 +280,7 @@ class DNSpropagation:
         for result in results:
             answers = []
             for a in result["answer"]:
-                text = a.to_text().strip('"') if not isinstance(a, str) else a.strip('"')
+                text = self._record_text(a, strip_quotes=True)
                 # Match on the raw text, escape only for display
                 safe_text = html.escape(text)
                 if expected is not None and (text in expected or text[1:-1] in expected):
@@ -313,7 +322,7 @@ class DNSpropagation:
         """Return False if any non-timeout answer is not in the expected list."""
         for result in results:
             for a in result["answer"]:
-                text = a.to_text() if not isinstance(a, str) else a
+                text = self._record_text(a)
                 if text == "timed out":
                     continue
                 if text not in expected and text[1:-1] not in expected:
@@ -352,10 +361,7 @@ class DNSpropagation:
             tmp_answer = ""
             answers = []
             for a in result["answer"]:
-                if not isinstance(a, str):
-                    tmp_string = a.to_text()
-                else:
-                    tmp_string = a
+                tmp_string = self._record_text(a)
 
                 if expected is not None and (tmp_string in expected or tmp_string[1:-1] in expected):
                     tmp_string = colorize(92, tmp_string)
