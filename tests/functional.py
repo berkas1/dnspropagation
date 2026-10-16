@@ -496,3 +496,30 @@ def test_dns_answer_to_strings_strips_quotes():
     answer = [{"server": {"ipv4": "1.1.1.1"}, "answer": [_FakeRdata('"v=spf1 -all"'), '"x"'], "ttl": 5}]
     out = DNSpropagation().dns_answer_to_strings(answer, show_ttl=True)
     assert out == [{"server": {"ipv4": "1.1.1.1"}, "answer": ["v=spf1 -all", "x"], "ttl": 5}]
+
+
+# --- schema validation edge cases ---
+
+def test_custom_list_not_a_list():
+    with serve_yaml(yaml.dump({"ipv4": "8.8.8.8"}).encode()) as url:
+        result = run('--json', '--custom_list', url, 'A', 'dns.google')
+    assert result.returncode == 16
+    assert b"must be a YAML sequence" in result.stdout
+
+
+def test_custom_list_entry_not_a_mapping():
+    with serve_yaml(yaml.dump(["8.8.8.8"]).encode()) as url:
+        result = run('--json', '--custom_list', url, 'A', 'dns.google')
+    assert result.returncode == 16
+    assert b"is not a mapping" in result.stdout
+
+
+# --- empty answer ---
+
+def test_no_answer_returns_empty_list():
+    # www.google.com has no TXT records, so the server answers with NoAnswer
+    result = run('--json', '--ttl', '--server', '8.8.8.8', 'TXT', 'www.google.com')
+    assert result.returncode == 0
+    data = json.loads(result.stdout)
+    assert data[0]["answer"] == []
+    assert data[0]["ttl"] is None
