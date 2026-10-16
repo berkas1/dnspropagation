@@ -1,4 +1,5 @@
 import copy
+import html
 import importlib.resources
 import ipaddress
 import random
@@ -253,25 +254,40 @@ class DNSpropagation:
         return results
 
     def generate_html(self, results: [], record_type: str, domain: str, expected=None, show_ttl=False) -> str:
+        """
+        Render DNS query results as a self-contained HTML page.
+
+        All user-controlled values (domain, tags, server IP, record text) are
+        HTML-escaped before being inserted into the template.
+
+        :param results: List of per-server result dicts from check_entries().
+        :param record_type: DNS record type, e.g. "A".
+        :param domain: Queried domain name.
+        :param expected: List of expected answer strings, or None to skip matching.
+        :param show_ttl: When True, include a TTL column.
+        :returns: The rendered HTML document as a string.
+        """
         rows = ""
         for result in results:
             answers = []
             for a in result["answer"]:
                 text = a.to_text().strip('"') if not isinstance(a, str) else a.strip('"')
+                # Match on the raw text, escape only for display
+                safe_text = html.escape(text)
                 if expected is not None and (text in expected or text[1:-1] in expected):
-                    answers.append(f'<span class="ok">{text}</span>')
+                    answers.append(f'<span class="ok">{safe_text}</span>')
                 elif expected is not None:
-                    answers.append(f'<span class="fail">{text}</span>')
+                    answers.append(f'<span class="fail">{safe_text}</span>')
                 elif text == "timed out":
-                    answers.append(f'<span class="fail">{text}</span>')
+                    answers.append(f'<span class="fail">{safe_text}</span>')
                 else:
-                    answers.append(f'<span class="ok">{text}</span>')
+                    answers.append(f'<span class="ok">{safe_text}</span>')
             answer_html = "<br>".join(answers) if answers else '<span class="empty">—</span>'
             ttl_cell = f'<td>{result.get("ttl") or "—"}</td>' if show_ttl else ""
-            tags_display = ", ".join(result["server"].get("tags") or []) or "—"
+            tags_display = html.escape(", ".join(result["server"].get("tags") or [])) or "—"
             rows += f"""
             <tr>
-                <td>{result["server"]["ipv4"]}</td>
+                <td>{html.escape(str(result["server"]["ipv4"]))}</td>
                 <td>{tags_display}</td>
                 {ttl_cell}
                 <td>{answer_html}</td>
@@ -287,7 +303,7 @@ class DNSpropagation:
         tmpl = string.Template(tmpl_text)
         return tmpl.substitute(
             record_type=record_type.upper(),
-            domain=domain,
+            domain=html.escape(domain),
             generated_at=generated_at,
             rows=rows,
             ttl_header=ttl_header,
