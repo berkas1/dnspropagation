@@ -427,3 +427,125 @@ def test_custom_list_http_malformed_yaml():
 def test_empty_server_list_after_filter():
     result = run('--json', '--tags', 'nonexistent_tag_xyz', 'A', 'dns.google')
     assert result.returncode == 3
+
+
+# --- HTML output ---
+
+def test_html_output_structure():
+    result = run('--html', '--server', '8.8.8.8', 'A', 'dns.google')
+    assert result.returncode == 0
+    assert b"<html" in result.stdout.lower()
+    assert b"8.8.8.8" in result.stdout
+    assert b'class="ok"' in result.stdout
+
+
+def test_html_expected_mismatch_marked_fail():
+    result = run('--html', '--server', '8.8.8.8', '--expected', '1.2.3.4', 'A', 'dns.google')
+    assert result.returncode == 5
+    assert b'class="fail"' in result.stdout
+
+
+# These two tests call the core class directly (not via the CLI) because
+# the markup has to come from a DNS answer, which cannot be injected end-to-end.
+
+def test_html_escapes_untrusted_values():
+    from dnspropagation.core import DNSpropagation
+    results = [{
+        "server": {"ipv4": "1.1.1.1", "tags": ["<b>tag</b>"]},
+        "answer": ['"<script>alert(1)</script>"'],
+        "ttl": 60,
+    }]
+    page = DNSpropagation().generate_html(results, "txt", "a<img src=x>.com", show_ttl=True)
+    assert "<script>alert(1)</script>" not in page
+    assert "&lt;script&gt;alert(1)&lt;/script&gt;" in page
+    assert "<b>tag</b>" not in page
+    assert "&lt;b&gt;tag&lt;/b&gt;" in page
+    assert "<img src=x>" not in page
+    assert "a&lt;img src=x&gt;.com" in page
+
+
+def test_html_expected_matches_raw_text_not_escaped():
+    from dnspropagation.core import DNSpropagation
+    results = [{"server": {"ipv4": "1.1.1.1", "tags": []}, "answer": ["a<b"], "ttl": 1}]
+    page = DNSpropagation().generate_html(results, "txt", "example.com", expected=["a<b"])
+    assert '<span class="ok">a&lt;b</span>' in page
+
+
+# --- record text conversion ---
+
+class _FakeRdata:
+    """Minimal stand-in for a dnspython rdata object."""
+    def __init__(self, text):
+        self._text = text
+
+    def to_text(self):
+        return self._text
+
+
+def test_record_text_handles_rdata_and_strings():
+    from dnspropagation.core import DNSpropagation
+    conv = DNSpropagation._record_text
+    assert conv("plain") == "plain"
+    assert conv(_FakeRdata('"quoted"')) == '"quoted"'
+    assert conv('"quoted"', strip_quotes=True) == "quoted"
+    assert conv(_FakeRdata('"quoted"'), strip_quotes=True) == "quoted"
+
+
+def test_dns_answer_to_strings_strips_quotes():
+    from dnspropagation.core import DNSpropagation
+    answer = [{"server": {"ipv4": "1.1.1.1"}, "answer": [_FakeRdata('"v=spf1 -all"'), '"x"'], "ttl": 5}]
+    out = DNSpropagation().dns_answer_to_strings(answer, show_ttl=True)
+    assert out == [{"server": {"ipv4": "1.1.1.1"}, "answer": ["v=spf1 -all", "x"], "ttl": 5}]
+
+
+# --- schema validation edge cases ---
+
+def test_custom_list_not_a_list():
+    with serve_yaml(yaml.dump({"ipv4": "8.8.8.8"}).encode()) as url:
+        result = run('--json', '--custom_list', url, 'A', 'dns.google')
+    assert result.returncode == 16
+    assert b"must be a YAML sequence" in result.stdout
+
+
+def test_custom_list_entry_not_a_mapping():
+    with serve_yaml(yaml.dump(["8.8.8.8"]).encode()) as url:
+        result = run('--json', '--custom_list', url, 'A', 'dns.google')
+    assert result.returncode == 16
+    assert b"is not a mapping" in result.stdout
+
+
+# --- terminal escape injection ---
+
+def test_strip_control_chars():
+    from dnspropagation.core import DNSpropagation
+    strip = DNSpropagation._strip_control_chars
+    assert strip("plain, tags-1") == "plain, tags-1"
+    assert strip("\x1b]0;PWNED\x07\x1b[2J evil\n") == "]0;PWNED[2J evil"
+
+
+def test_pretty_table_strips_escapes_from_tags(capsys):
+    from dnspropagation.core import DNSpropagation
+    results = [{"server": {"ipv4": "1.1.1.1", "tags": ["\x1b]0;PWNED\x07\x1b[2J evil"]}, "answer": ["1.2.3.4"], "ttl": 5}]
+    DNSpropagation().print_pretty_table(results, None, no_color=True)
+    out = capsys.readouterr().out
+    assert "\x1b" not in out and "\x07" not in out
+    assert "evil" in out
+
+
+def test_custom_list_escape_in_tags_not_printed():
+    data = [{"ipv4": "127.0.0.1", "tags": ["\x1b[2J evil"]}]
+    with serve_yaml(yaml.dump(data).encode()) as url:
+        result = run('--no-color', '--timeout', '1', '--custom_list', url, 'A', 'dns.google')
+    assert b"\x1b" not in result.stdout
+    assert b"evil" in result.stdout
+
+
+# --- empty answer ---
+
+def test_no_answer_returns_empty_list():
+    # www.google.com has no TXT records, so the server answers with NoAnswer
+    result = run('--json', '--ttl', '--server', '8.8.8.8', 'TXT', 'www.google.com')
+    assert result.returncode == 0
+    data = json.loads(result.stdout)
+    assert data[0]["answer"] == []
+    assert data[0]["ttl"] is None

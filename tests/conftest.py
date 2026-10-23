@@ -1,7 +1,12 @@
 import http.server
 import socketserver
+import sys
 import threading
+from pathlib import Path
 from contextlib import contextmanager
+
+# Make in-process imports use the local source, not an installed package
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
 
 @contextmanager

@@ -1,9 +1,11 @@
 import copy
+import html
 import importlib.resources
 import ipaddress
 import random
 import string
 import sys
+import unicodedata
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -147,6 +149,31 @@ class DNSpropagation:
         return self._validate_server_list(data)
 
 
+    @staticmethod
+    def _record_text(record, strip_quotes=False) -> str:
+        """
+        Convert a single answer record to its text form.
+
+        :param record: A dnspython rdata object or an already-plain string.
+        :param strip_quotes: When True, strip surrounding double quotes.
+        :returns: The record as a string.
+        """
+        text = record if isinstance(record, str) else record.to_text()
+        return text.strip('"') if strip_quotes else text
+
+    @staticmethod
+    def _strip_control_chars(text) -> str:
+        """
+        Remove control and other non-printing characters from a string.
+
+        Used before printing untrusted values (e.g. tags from a remote server
+        list) to the terminal so they cannot inject escape sequences.
+
+        :param text: The value to clean; non-strings are converted with str().
+        :returns: The text with all Unicode "C*" category characters removed.
+        """
+        return "".join(ch for ch in str(text) if not unicodedata.category(ch).startswith("C"))
+
     def dns_answer_to_strings(self, answer: [], show_ttl=False) -> []:
         """
         Convert DNS answer records to plain string dicts for JSON/YAML output.
@@ -168,10 +195,7 @@ class DNSpropagation:
             if show_ttl:
                 tmp['ttl'] = a.get('ttl')
             for r in a["answer"]:
-                if not isinstance(r, str):
-                    tmp["answer"].append(r.to_text().strip('"'))
-                else:
-                    tmp["answer"].append(r.strip('"'))
+                tmp["answer"].append(self._record_text(r, strip_quotes=True))
             output.append(tmp)
 
         return output
@@ -253,25 +277,40 @@ class DNSpropagation:
         return results
 
     def generate_html(self, results: [], record_type: str, domain: str, expected=None, show_ttl=False) -> str:
+        """
+        Render DNS query results as a self-contained HTML page.
+
+        All user-controlled values (domain, tags, server IP, record text) are
+        HTML-escaped before being inserted into the template.
+
+        :param results: List of per-server result dicts from check_entries().
+        :param record_type: DNS record type, e.g. "A".
+        :param domain: Queried domain name.
+        :param expected: List of expected answer strings, or None to skip matching.
+        :param show_ttl: When True, include a TTL column.
+        :returns: The rendered HTML document as a string.
+        """
         rows = ""
         for result in results:
             answers = []
             for a in result["answer"]:
-                text = a.to_text().strip('"') if not isinstance(a, str) else a.strip('"')
+                text = self._record_text(a, strip_quotes=True)
+                # Match on the raw text, escape only for display
+                safe_text = html.escape(text)
                 if expected is not None and (text in expected or text[1:-1] in expected):
-                    answers.append(f'<span class="ok">{text}</span>')
+                    answers.append(f'<span class="ok">{safe_text}</span>')
                 elif expected is not None:
-                    answers.append(f'<span class="fail">{text}</span>')
+                    answers.append(f'<span class="fail">{safe_text}</span>')
                 elif text == "timed out":
-                    answers.append(f'<span class="fail">{text}</span>')
+                    answers.append(f'<span class="fail">{safe_text}</span>')
                 else:
-                    answers.append(f'<span class="ok">{text}</span>')
+                    answers.append(f'<span class="ok">{safe_text}</span>')
             answer_html = "<br>".join(answers) if answers else '<span class="empty">—</span>'
             ttl_cell = f'<td>{result.get("ttl") or "—"}</td>' if show_ttl else ""
-            tags_display = ", ".join(result["server"].get("tags") or []) or "—"
+            tags_display = html.escape(", ".join(result["server"].get("tags") or [])) or "—"
             rows += f"""
             <tr>
-                <td>{result["server"]["ipv4"]}</td>
+                <td>{html.escape(str(result["server"]["ipv4"]))}</td>
                 <td>{tags_display}</td>
                 {ttl_cell}
                 <td>{answer_html}</td>
@@ -287,7 +326,7 @@ class DNSpropagation:
         tmpl = string.Template(tmpl_text)
         return tmpl.substitute(
             record_type=record_type.upper(),
-            domain=domain,
+            domain=html.escape(domain),
             generated_at=generated_at,
             rows=rows,
             ttl_header=ttl_header,
@@ -297,7 +336,7 @@ class DNSpropagation:
         """Return False if any non-timeout answer is not in the expected list."""
         for result in results:
             for a in result["answer"]:
-                text = a.to_text() if not isinstance(a, str) else a
+                text = self._record_text(a)
                 if text == "timed out":
                     continue
                 if text not in expected and text[1:-1] not in expected:
@@ -318,6 +357,8 @@ class DNSpropagation:
         Each row contains the server IP, its tags, and the answer records.
         Records are colourised green/red based on whether they match
         ``expected``; pass ``no_color=True`` to suppress ANSI codes.
+        Control characters in server, tag and answer text are stripped so
+        untrusted values cannot inject terminal escape sequences.
 
         :param results: List of per-server result dicts from check_entries().
         :param expected: List of expected answer strings for match highlighting, or None to skip.
@@ -328,6 +369,7 @@ class DNSpropagation:
         x.field_names = ["Server", "Tags", "TTL", "Answer"] if show_ttl else ["Server", "Tags", "Answer"]
 
         def colorize(code, text):
+            text = self._strip_control_chars(text)
             if no_color:
                 return text
             return f'\033[{code}m' + text + '\033[0m'
@@ -336,10 +378,7 @@ class DNSpropagation:
             tmp_answer = ""
             answers = []
             for a in result["answer"]:
-                if not isinstance(a, str):
-                    tmp_string = a.to_text()
-                else:
-                    tmp_string = a
+                tmp_string = self._record_text(a)
 
                 if expected is not None and (tmp_string in expected or tmp_string[1:-1] in expected):
                     tmp_string = colorize(92, tmp_string)
@@ -353,11 +392,12 @@ class DNSpropagation:
                     tmp_string = colorize(92, tmp_string)
                 answers.append(tmp_string)
             result_string = "\n".join(answers)
-            tags_display = ", ".join(result["server"].get("tags") or [])
+            tags_display = self._strip_control_chars(", ".join(str(t) for t in result["server"].get("tags") or []))
+            server_display = self._strip_control_chars(result["server"]["ipv4"])
             if show_ttl:
-                x.add_row([result["server"]["ipv4"], tags_display, result.get("ttl"), result_string])
+                x.add_row([server_display, tags_display, result.get("ttl"), result_string])
             else:
-                x.add_row([result["server"]["ipv4"], tags_display, result_string])
+                x.add_row([server_display, tags_display, result_string])
 
 
         x._max_width = {"Answer": 70}
