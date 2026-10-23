@@ -514,6 +514,32 @@ def test_custom_list_entry_not_a_mapping():
     assert b"is not a mapping" in result.stdout
 
 
+# --- terminal escape injection ---
+
+def test_strip_control_chars():
+    from dnspropagation.core import DNSpropagation
+    strip = DNSpropagation._strip_control_chars
+    assert strip("plain, tags-1") == "plain, tags-1"
+    assert strip("\x1b]0;PWNED\x07\x1b[2J evil\n") == "]0;PWNED[2J evil"
+
+
+def test_pretty_table_strips_escapes_from_tags(capsys):
+    from dnspropagation.core import DNSpropagation
+    results = [{"server": {"ipv4": "1.1.1.1", "tags": ["\x1b]0;PWNED\x07\x1b[2J evil"]}, "answer": ["1.2.3.4"], "ttl": 5}]
+    DNSpropagation().print_pretty_table(results, None, no_color=True)
+    out = capsys.readouterr().out
+    assert "\x1b" not in out and "\x07" not in out
+    assert "evil" in out
+
+
+def test_custom_list_escape_in_tags_not_printed():
+    data = [{"ipv4": "127.0.0.1", "tags": ["\x1b[2J evil"]}]
+    with serve_yaml(yaml.dump(data).encode()) as url:
+        result = run('--no-color', '--timeout', '1', '--custom_list', url, 'A', 'dns.google')
+    assert b"\x1b" not in result.stdout
+    assert b"evil" in result.stdout
+
+
 # --- empty answer ---
 
 def test_no_answer_returns_empty_list():

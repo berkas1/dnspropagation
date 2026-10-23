@@ -5,6 +5,7 @@ import ipaddress
 import random
 import string
 import sys
+import unicodedata
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -159,6 +160,19 @@ class DNSpropagation:
         """
         text = record if isinstance(record, str) else record.to_text()
         return text.strip('"') if strip_quotes else text
+
+    @staticmethod
+    def _strip_control_chars(text) -> str:
+        """
+        Remove control and other non-printing characters from a string.
+
+        Used before printing untrusted values (e.g. tags from a remote server
+        list) to the terminal so they cannot inject escape sequences.
+
+        :param text: The value to clean; non-strings are converted with str().
+        :returns: The text with all Unicode "C*" category characters removed.
+        """
+        return "".join(ch for ch in str(text) if not unicodedata.category(ch).startswith("C"))
 
     def dns_answer_to_strings(self, answer: [], show_ttl=False) -> []:
         """
@@ -343,6 +357,8 @@ class DNSpropagation:
         Each row contains the server IP, its tags, and the answer records.
         Records are colourised green/red based on whether they match
         ``expected``; pass ``no_color=True`` to suppress ANSI codes.
+        Control characters in server, tag and answer text are stripped so
+        untrusted values cannot inject terminal escape sequences.
 
         :param results: List of per-server result dicts from check_entries().
         :param expected: List of expected answer strings for match highlighting, or None to skip.
@@ -353,6 +369,7 @@ class DNSpropagation:
         x.field_names = ["Server", "Tags", "TTL", "Answer"] if show_ttl else ["Server", "Tags", "Answer"]
 
         def colorize(code, text):
+            text = self._strip_control_chars(text)
             if no_color:
                 return text
             return f'\033[{code}m' + text + '\033[0m'
@@ -375,11 +392,12 @@ class DNSpropagation:
                     tmp_string = colorize(92, tmp_string)
                 answers.append(tmp_string)
             result_string = "\n".join(answers)
-            tags_display = ", ".join(result["server"].get("tags") or [])
+            tags_display = self._strip_control_chars(", ".join(str(t) for t in result["server"].get("tags") or []))
+            server_display = self._strip_control_chars(result["server"]["ipv4"])
             if show_ttl:
-                x.add_row([result["server"]["ipv4"], tags_display, result.get("ttl"), result_string])
+                x.add_row([server_display, tags_display, result.get("ttl"), result_string])
             else:
-                x.add_row([result["server"]["ipv4"], tags_display, result_string])
+                x.add_row([server_display, tags_display, result_string])
 
 
         x._max_width = {"Answer": 70}
